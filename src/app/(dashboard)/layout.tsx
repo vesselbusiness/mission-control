@@ -1,6 +1,6 @@
 "use client";
 
-import { Dock, TopBar, StatusBar } from "@/components/TenacitOS";
+import { Dock, TopBar, StatusBar } from "@/components/VesselOS";
 
 export default function DashboardLayout({
   children,

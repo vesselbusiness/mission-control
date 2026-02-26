@@ -2,84 +2,84 @@
 @plugin "@tailwindcss/typography";
 
 /* ============================================
-   TenacitOS Design System
-   Based on tenacios-design.json (Pencil)
-   Updated: 2026-02-17
+   Vessel Mission Control Design System
+   Warm, spacious, modern, human-centered
+   Updated: 2026-02-24
    ============================================ */
 
 :root {
-  /* Core Colors */
-  --bg: #0C0C0C;
-  --background: #0C0C0C; /* alias for compatibility */
-  --foreground: #FFFFFF;
+  /* Core Colors - Blue-grey with warm tones */
+  --bg: #F8F9FB;
+  --background: #F8F9FB; /* alias for compatibility */
+  --foreground: #1A2332;
   
   /* Surface Colors */
-  --surface: #1A1A1A;
-  --surface-elevated: #242424;
-  --surface-hover: #2E2E2E;
-  --card: #1A1A1A; /* alias */
-  --card-elevated: #242424; /* alias */
+  --surface: #FFFFFF;
+  --surface-elevated: #F2F4F7;
+  --surface-hover: #E8ECF1;
+  --card: #FFFFFF; /* alias */
+  --card-elevated: #F2F4F7; /* alias */
   
   /* Borders */
-  --border: #2A2A2A;
-  --border-strong: #3A3A3A;
+  --border: #D8DFE8;
+  --border-strong: #C4CDD8;
   
-  /* Accent */
-  --accent: #FF3B30;
-  --accent-soft: rgba(255, 59, 48, 0.125);
-  --accent-hover: #FF524A;
-  --accent-muted: rgba(255, 59, 48, 0.1); /* legacy */
+  /* Accent - Warm gold */
+  --accent: #D4922F;
+  --accent-soft: rgba(212, 146, 47, 0.08);
+  --accent-hover: #E8A84D;
+  --accent-muted: rgba(212, 146, 47, 0.05); /* legacy */
   
   /* Text Colors */
-  --text-primary: #FFFFFF;
-  --text-secondary: #8A8A8A;
-  --text-muted: #525252;
+  --text-primary: #1A2332;
+  --text-secondary: #5A6B7F;
+  --text-muted: #8A96A8;
   
   /* Semantic Colors */
-  --positive: #32D74B;
-  --positive-soft: rgba(50, 215, 75, 0.125);
-  --negative: #FF453A;
-  --negative-soft: rgba(255, 69, 58, 0.125);
-  --warning: #FFD60A;
-  --warning-soft: rgba(255, 214, 10, 0.125);
-  --info: #0A84FF;
-  --info-soft: rgba(10, 132, 255, 0.125);
+  --positive: #2D8659;
+  --positive-soft: rgba(45, 134, 89, 0.08);
+  --negative: #C1483D;
+  --negative-soft: rgba(193, 72, 61, 0.08);
+  --warning: #D97607;
+  --warning-soft: rgba(217, 118, 7, 0.08);
+  --info: #0B7FBE;
+  --info-soft: rgba(11, 127, 190, 0.08);
   
   /* Legacy aliases */
-  --success: #32D74B;
-  --success-bg: rgba(50, 215, 75, 0.1);
-  --error: #FF453A;
-  --error-bg: rgba(255, 69, 58, 0.1);
+  --success: #2D8659;
+  --success-bg: rgba(45, 134, 89, 0.08);
+  --error: #C1483D;
+  --error-bg: rgba(193, 72, 61, 0.08);
   
   /* Activity Type Colors */
-  --type-file: #64D2FF;
-  --type-file-bg: rgba(100, 210, 255, 0.125);
-  --type-search: #FFD60A;
-  --type-search-bg: rgba(255, 214, 10, 0.125);
-  --type-message: #32D74B;
-  --type-message-bg: rgba(50, 215, 75, 0.125);
-  --type-command: #BF5AF2;
-  --type-command-bg: rgba(191, 90, 242, 0.125);
-  --type-cron: #FF375F;
-  --type-cron-bg: rgba(255, 55, 95, 0.125);
-  --type-security: #FF453A;
-  --type-security-bg: rgba(255, 69, 58, 0.125);
-  --type-build: #FF9F0A;
-  --type-build-bg: rgba(255, 159, 10, 0.125);
+  --type-file: #0B7FBE;
+  --type-file-bg: rgba(11, 127, 190, 0.08);
+  --type-search: #D4922F;
+  --type-search-bg: rgba(212, 146, 47, 0.08);
+  --type-message: #2D8659;
+  --type-message-bg: rgba(45, 134, 89, 0.08);
+  --type-command: #6B5B95;
+  --type-command-bg: rgba(107, 91, 149, 0.08);
+  --type-cron: #C1483D;
+  --type-cron-bg: rgba(193, 72, 61, 0.08);
+  --type-security: #A63333;
+  --type-security-bg: rgba(166, 51, 51, 0.08);
+  --type-build: #D97607;
+  --type-build-bg: rgba(217, 118, 7, 0.08);
   
   /* Typography - uses Next.js font variables */
   --font-heading: var(--font-sora), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), monospace;
   
-  /* Spacing */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* Spacing - 4px scale */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  /* Shadows - Soft, subtle */
+  --shadow-sm: 0 2px 4px rgba(26, 35, 50, 0.08);
+  --shadow-md: 0 4px 12px rgba(26, 35, 50, 0.12);
 }
 
 /* Base Styles */
@@ -87,6 +87,8 @@ body {
   background-color: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-body);
+  line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
 /* Custom scrollbar */
@@ -96,12 +98,12 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: transparent;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
+  background: var(--border-strong);
   border-radius: 4px;
 }
 

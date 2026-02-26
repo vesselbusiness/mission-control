@@ -20,7 +20,6 @@ import {
   Menu,
   X,
   Users,
-  Gamepad2,
   GitBranch,
   Workflow,
   Zap,
@@ -28,13 +27,23 @@ import {
   GitFork,
   SquareTerminal,
   History,
+  // Vessel Business pages
+  HeartHandshake,
+  LineChart,
+  ListTodo,
+  UserCheck,
 } from "lucide-react";
 import { getAgentDisplayName } from "@/config/branding";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  // ── Vessel Business ──────────────────────────────
+  { href: "/clients", label: "Clients", icon: UserCheck },
+  { href: "/community", label: "Community", icon: HeartHandshake },
+  { href: "/business", label: "Business", icon: LineChart },
+  { href: "/todos", label: "To-Do", icon: ListTodo },
+  // ────────────────────────────────────────────────
   { href: "/agents", label: "Agents", icon: Users },
-  { href: "/office", label: "🎮 Office", icon: Gamepad2, highlight: true },
   { href: "/actions", label: "Quick Actions", icon: Zap },
   { href: "/system", label: "System", icon: Server },
   { href: "/logs", label: "Live Logs", icon: Terminal },
@@ -228,13 +237,6 @@ export function Sidebar() {
                       !isActive
                         ? {
                             color: "var(--text-secondary)",
-                            ...(item.highlight
-                              ? {
-                                  background:
-                                    "linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))",
-                                  borderLeft: "3px solid var(--accent)",
-                                }
-                              : {}),
                           }
                         : {
                             backgroundColor: "var(--accent)",

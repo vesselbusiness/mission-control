@@ -1,408 +1,510 @@
-# TenacitOS — Mission Control
+# Vessel Mission Control
 
-A real-time dashboard and control center for [OpenClaw](https://openclaw.ai) AI agent instances. Built with Next.js, React 19, and Tailwind CSS v4.
+**Mission Control for Vessel Business** — Navigate expert businesses to success with real-time agent monitoring, OpenClaw Gateway integration, and modern dashboard UI.
 
-> **TenacitOS** lives inside your OpenClaw workspace and reads its configuration, agents, sessions, memory, and logs directly from the host. No extra database or backend required — OpenClaw is the backend.
+Built on [tenacitOS](https://github.com/carlosazaustre/tenacitOS), stripped of 3D visualization and customized for Vessel's warm, spacious, human-centered vibe.
 
----
+![Vessel Mission Control](./docs/screenshot.png)
 
 ## Features
 
-- **📊 System Monitor** — Real-time VPS metrics (CPU, RAM, Disk, Network) + PM2/Docker status
-- **🤖 Agent Dashboard** — All agents, their sessions, token usage, model, and activity status
-- **💰 Cost Tracking** — Real cost analytics from OpenClaw sessions (SQLite)
-- **⏰ Cron Manager** — Visual cron manager with weekly timeline, run history, and manual triggers
-- **📋 Activity Feed** — Real-time log of agent actions with heatmap and charts
-- **🧠 Memory Browser** — Explore, search, and edit agent memory files
-- **📁 File Browser** — Navigate workspace files with preview and in-browser editing
-- **🔎 Global Search** — Full-text search across memory and workspace files
-- **🔔 Notifications** — Real-time notification center with unread badge
-- **🏢 Office 3D** — Interactive 3D office with one desk per agent (React Three Fiber)
-- **📺 Terminal** — Read-only terminal for safe status commands
-- **🔐 Auth** — Password-protected with rate limiting and secure cookie
+✨ **Core Features (Retained from tenacitOS)**
+
+- **Dashboard** — Real-time agent activity, system stats, cost tracking
+- **Agent Monitoring** — Live agent status, activity feed, performance metrics
+- **Terminal Interface** — Execute commands, view logs, debug systems
+- **File Browser** — Navigate and manage workspace files
+- **Memory Management** — Search agent memory, view knowledge base
+- **Cron Jobs** — Schedule and monitor background tasks
+- **Analytics** — Activity heatmaps, success rates, hourly breakdown
+- **Git Integration** — View repository status, recent commits
+- **Workflow Management** — Monitor and trigger agent workflows
+- **Cost Tracking** — Real-time API usage and token costs
+- **Skills Browser** — Discover and manage agent skills
+- **Live Logs** — Stream logs in real-time, filter by type
+- **Session Management** — Track active agent sessions
+
+🎨 **Design (Customized for Vessel)**
+
+- Blue-grey primary with warm gold accents (#D4922F)
+- Light, spacious UI with generous whitespace
+- Clean typography with improved readability
+- 4px spacing scale for consistent rhythm
+- Soft, subtle shadows for depth
+- Modern, human-centered aesthetic
+
+🔌 **OpenClaw Integration**
+
+- WebSocket connectivity to OpenClaw Gateway
+- Real-time agent status updates
+- Cost tracking from OpenClaw API
+- Workspace file browsing
+- Activity logging and monitoring
 
 ---
 
-## Screenshots
+## 🚀 Quick Start
 
-**Dashboard** — activity overview, agent status, and weather widget
+### Prerequisites
 
-![Dashboard](./docs/screenshots/dashboard.jpg)
+- **Node.js** 18+ (recommend 20+)
+- **npm** 9+
+- **OpenClaw** instance running locally or remotely
 
-**Session History** — all OpenClaw sessions with token usage and context tracking
-
-![Sessions](./docs/screenshots/sessions.jpg)
-
-**Costs & Analytics** — daily cost trends and breakdown per agent
-
-![Costs](./docs/screenshots/costs.jpg)
-
-**System Monitor** — real-time CPU, RAM, Disk, and Network metrics
-
-![System Monitor](./docs/screenshots/system.jpg)
-
-**Office 3D** — interactive 3D office with one voxel avatar per agent (React Three Fiber)
-
-![Office 3D](./docs/screenshots/office3d.jpg)
-
----
-
-## Requirements
-
-- **Node.js** 18+ (tested with v22)
-- **[OpenClaw](https://openclaw.ai)** installed and running on the same host
-- **PM2** or **systemd** (recommended for production)
-- **Caddy** or another reverse proxy (for HTTPS in production)
-
----
-
-## How it works
-
-TenacitOS reads directly from your OpenClaw installation:
-
-```
-/root/.openclaw/              ← OPENCLAW_DIR (configurable)
-├── openclaw.json             ← agents list, channels, models config
-├── workspace/                ← main agent workspace (MEMORY.md, SOUL.md, etc.)
-├── workspace-studio/         ← sub-agent workspaces
-├── workspace-infra/
-├── ...
-└── workspace/mission-control/ ← TenacitOS lives here
-```
-
-The app uses `OPENCLAW_DIR` to locate `openclaw.json` and all workspaces. **No manual agent configuration needed** — agents are auto-discovered from `openclaw.json`.
-
----
-
-## Installation
-
-### 1. Clone into your OpenClaw workspace
+### Installation
 
 ```bash
-cd /root/.openclaw/workspace   # or your OPENCLAW_DIR/workspace
-git clone https://github.com/carlosazaustre/tenacitOS.git mission-control
-cd mission-control
+# Clone or download the repository
+git clone <your-repo-url> vessel-mission-control
+cd vessel-mission-control
+
+# Install dependencies
 npm install
-```
 
-### 2. Configure environment
-
-```bash
+# Copy environment variables and customize
 cp .env.example .env.local
+
+# Configure OpenClaw paths (if different from defaults)
+# Edit .env.local with your setup
 ```
 
-Edit `.env.local`:
+### Environment Variables
 
-```env
-# --- Auth (required) ---
-# Strong password to log in to the dashboard
-ADMIN_PASSWORD=your-secure-password-here
-
-# Random secret used to sign the auth cookie
-# Generate with: openssl rand -base64 32
-AUTH_SECRET=your-random-32-char-secret-here
-
-# --- OpenClaw paths (optional — defaults work for standard installs) ---
-# OPENCLAW_DIR=/root/.openclaw
-
-# --- Branding (customize for your instance) ---
-NEXT_PUBLIC_AGENT_NAME=Mission Control
-NEXT_PUBLIC_AGENT_EMOJI=🤖
-NEXT_PUBLIC_AGENT_DESCRIPTION=Your AI co-pilot, powered by OpenClaw
-NEXT_PUBLIC_AGENT_LOCATION=             # e.g. "Madrid, Spain"
-NEXT_PUBLIC_BIRTH_DATE=                 # ISO date, e.g. "2026-01-01"
-NEXT_PUBLIC_AGENT_AVATAR=               # path to image in /public, e.g. "/avatar.jpg"
-
-NEXT_PUBLIC_OWNER_USERNAME=your-username
-NEXT_PUBLIC_OWNER_EMAIL=your-email@example.com
-NEXT_PUBLIC_TWITTER_HANDLE=@username
-NEXT_PUBLIC_COMPANY_NAME=MISSION CONTROL, INC.
-NEXT_PUBLIC_APP_TITLE=Mission Control
-```
-
-> **Tip:** `OPENCLAW_DIR` defaults to `/root/.openclaw`. If your OpenClaw is installed elsewhere, set this variable.
-
-### 3. Initialize data files
+**.env.local** — Essential configuration:
 
 ```bash
-cp data/cron-jobs.example.json data/cron-jobs.json
-cp data/activities.example.json data/activities.json
-cp data/notifications.example.json data/notifications.json
-cp data/configured-skills.example.json data/configured-skills.json
-cp data/tasks.example.json data/tasks.json
+# Authentication
+ADMIN_PASSWORD=your-strong-password-here
+AUTH_SECRET=your-32-char-secret-key
+
+# OpenClaw Gateway (optional if using local OpenClaw)
+# OPENCLAW_GATEWAY_URL=http://localhost:8080
+# OPENCLAW_API_TOKEN=your-token
+
+# OpenClaw Paths (adjust to your system)
+OPENCLAW_DIR=/Users/yourname/.openclaw
+OPENCLAW_WORKSPACE=/Users/yourname/.openclaw/workspace
+
+# Branding (Vessel defaults provided)
+NEXT_PUBLIC_AGENT_NAME=Vessel Command
+NEXT_PUBLIC_AGENT_EMOJI=⛵
+NEXT_PUBLIC_COMPANY_NAME=VESSEL BUSINESS
+NEXT_PUBLIC_APP_TITLE=Vessel Mission Control
 ```
 
-### 4. Generate secrets
+### Development
 
 ```bash
-# Auth secret
-openssl rand -base64 32
-
-# Password (or use a password manager)
-openssl rand -base64 18
-```
-
-### 5. Run
-
-```bash
-# Development
+# Start development server (hot reload)
 npm run dev
+
+# Open in browser
 # → http://localhost:3000
+```
 
-# Production build
+### Production Build
+
+```bash
+# Build optimized production bundle
 npm run build
+
+# Start production server
 npm start
-```
 
-Login at `http://localhost:3000` with the `ADMIN_PASSWORD` you set.
+# Or use Vercel for hosting (see Deployment below)
+```
 
 ---
 
-## Production Deployment
-
-### PM2 (recommended)
-
-```bash
-npm run build
-
-pm2 start npm --name "mission-control" -- start
-pm2 save
-pm2 startup   # enable auto-restart on reboot
-```
-
-### systemd
-
-Create `/etc/systemd/system/mission-control.service`:
-
-```ini
-[Unit]
-Description=TenacitOS — OpenClaw Mission Control
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/.openclaw/workspace/mission-control
-ExecStart=/usr/bin/npm start
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable mission-control
-sudo systemctl start mission-control
-```
-
-### Reverse proxy — Caddy (HTTPS)
-
-```caddy
-mission-control.yourdomain.com {
-    reverse_proxy localhost:3000
-}
-```
-
-> When behind HTTPS, `secure: true` is set automatically on the auth cookie.
-
----
-
-## Configuration
-
-### Agent branding
-
-All personal data stays in `.env.local` (gitignored). The `src/config/branding.ts` file reads from env vars — **never edit it directly** with your personal data.
-
-### Agent discovery
-
-Agents are auto-discovered from `openclaw.json` at startup. The `/api/agents` endpoint reads:
-
-```json
-{
-  "agents": {
-    "list": [
-      { "id": "main", "name": "...", "workspace": "...", "model": {...} },
-      { "id": "studio", "name": "...", "workspace": "..." }
-    ]
-  }
-}
-```
-
-Each agent can define its own visual appearance in `openclaw.json`:
-
-```json
-{
-  "id": "studio",
-  "name": "My Studio Agent",
-  "ui": {
-    "emoji": "🎬",
-    "color": "#E91E63"
-  }
-}
-```
-
-### Office 3D — agent positions
-
-The 3D office has default positions for up to 6 agents. To customize positions, names, and colors for your own agents, edit `src/components/Office3D/agentsConfig.ts`:
-
-```ts
-export const AGENTS: AgentConfig[] = [
-  {
-    id: "main",       // must match workspace ID
-    name: "...",      // display name (can also come from API)
-    emoji: "🤖",
-    position: [0, 0, 0],
-    color: "#FFCC00",
-    role: "Main Agent",
-  },
-  // add your sub-agents here
-];
-```
-
-### 3D Avatar models
-
-To add custom 3D avatars (Ready Player Me GLB format), place them in `public/models/`:
+## 📁 Project Structure
 
 ```
-public/models/
-├── main.glb        ← main agent avatar
-├── studio.glb      ← workspace-studio agent
-└── infra.glb       ← workspace-infra agent
-```
-
-Filename must match the agent `id`. If no file is found, a colored sphere is shown as fallback.  
-See `public/models/README.md` for full instructions.
-
-### Cost tracking
-
-Usage is collected from OpenClaw's SQLite databases via a script:
-
-```bash
-# Collect once
-npx tsx scripts/collect-usage.ts
-
-# Auto-collect every hour (adds a cron job)
-./scripts/setup-cron.sh
-```
-
-See [docs/COST-TRACKING.md](./docs/COST-TRACKING.md) for details.
-
----
-
-## Project Structure
-
-```
-mission-control/
+vessel-mission-control/
 ├── src/
-│   ├── app/
-│   │   ├── (dashboard)/      # Dashboard pages (protected)
-│   │   ├── api/              # API routes
-│   │   ├── login/            # Login page
-│   │   └── office/           # 3D office (unprotected route)
-│   ├── components/
-│   │   ├── TenacitOS/        # OS-style UI shell (topbar, dock, status bar)
-│   │   └── Office3D/         # React Three Fiber 3D office
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── (dashboard)/        # Main dashboard pages
+│   │   │   ├── page.tsx        # Dashboard home
+│   │   │   ├── agents/         # Agent monitoring
+│   │   │   ├── activity/       # Activity feed
+│   │   │   ├── costs/          # Cost tracking
+│   │   │   ├── logs/           # Live logs
+│   │   │   ├── terminal/       # Terminal interface
+│   │   │   ├── files/          # File browser
+│   │   │   └── [more pages]
+│   │   ├── api/                # API routes
+│   │   │   ├── agents/         # Agent status endpoints
+│   │   │   ├── costs/          # Cost tracking API
+│   │   │   ├── system/         # System monitoring
+│   │   │   └── [more endpoints]
+│   │   └── layout.tsx          # Root layout
+│   │
+│   ├── components/             # React components
+│   │   ├── Sidebar.tsx         # Navigation sidebar
+│   │   ├── Dashboard/          # Dashboard components
+│   │   ├── AgentMonitoring/    # Agent-specific
+│   │   └── [shared components]
+│   │
 │   ├── config/
-│   │   └── branding.ts       # Branding constants (reads from env vars)
-│   └── lib/                  # Utilities (pricing, queries, activity logger...)
-├── data/                     # JSON data files (gitignored — use .example versions)
-├── docs/                     # Extended documentation
+│   │   └── branding.ts         # Vessel branding (colors, names)
+│   │
+│   ├── lib/                    # Utilities
+│   │   ├── usage-collector.ts  # Cost tracking
+│   │   ├── activity-logger.ts  # Event logging
+│   │   └── [helpers]
+│   │
+│   └── app/globals.css         # Global styles (Vessel theme)
+│
 ├── public/
-│   └── models/               # GLB avatar models (add your own)
-├── scripts/                  # Setup and data collection scripts
-├── .env.example              # Environment variable template
-└── middleware.ts             # Auth guard for all routes
+│   ├── manifest.json
+│   ├── apple-touch-icon.png
+│   └── [assets]
+│
+├── data/                       # SQLite databases
+│   ├── activities.db           # Activity log
+│   └── memory.db               # Knowledge base
+│
+├── .env.example                # Environment template
+├── package.json                # Dependencies
+├── tailwind.config.js          # Tailwind CSS
+├── tsconfig.json               # TypeScript config
+└── next.config.mjs             # Next.js config
 ```
 
 ---
 
-## Security
+## 🎨 Customization
 
-- All routes (including all `/api/*`) require authentication — handled by `src/middleware.ts`
-- `/api/auth/login` and `/api/health` are the only public endpoints
-- Login is rate-limited: **5 failed attempts → 15-minute lockout** per IP
-- Auth cookie is `httpOnly`, `sameSite: lax`, and `secure` in production
-- Terminal API uses a strict command allowlist — `env`, `curl`, `wget`, `node`, `python` are blocked
-- **Never commit `.env.local`** — it contains your credentials
+### Colors & Theme
 
-Generate fresh secrets:
+Edit **src/app/globals.css** to adjust the color scheme:
+
+```css
+:root {
+  /* Primary - Blue-grey */
+  --bg: #F8F9FB;
+  --surface: #FFFFFF;
+  
+  /* Accent - Warm gold */
+  --accent: #D4922F;
+  --accent-hover: #E8A84D;
+  
+  /* Text */
+  --text-primary: #1A2332;
+  --text-secondary: #5A6B7F;
+}
+```
+
+### Branding
+
+Edit **src/config/branding.ts** to customize:
+
+```typescript
+export const BRANDING = {
+  agentName: "Vessel Command",
+  agentEmoji: "⛵",
+  companyName: "VESSEL BUSINESS",
+  appTitle: "Vessel Mission Control",
+  // ... more options
+};
+```
+
+Or use environment variables (**.env.local**):
 
 ```bash
-openssl rand -base64 32   # AUTH_SECRET
-openssl rand -base64 18   # ADMIN_PASSWORD
+NEXT_PUBLIC_AGENT_NAME=Your Agent Name
+NEXT_PUBLIC_COMPANY_NAME=Your Company
 ```
 
 ---
 
-## Troubleshooting
+## 🔌 OpenClaw Integration
 
-**"Gateway not reachable" / agent data missing**
+Mission Control connects to your OpenClaw instance via HTTP/WebSocket APIs.
+
+### How It Works
+
+1. **Agent Status** — Polls `/api/agents/[id]/status` for real-time updates
+2. **Cost Tracking** — Reads token usage from OpenClaw usage database
+3. **Activity Logging** — Monitors agent actions, logs events
+4. **Terminal Commands** — Executes commands via OpenClaw CLI
+5. **File Browsing** — Accesses workspace filesystem
+
+### Configuration
+
+Update **.env.local**:
 
 ```bash
-openclaw status
-openclaw gateway start   # if not running
+# Local OpenClaw (default)
+OPENCLAW_DIR=/Users/username/.openclaw
+OPENCLAW_WORKSPACE=/Users/username/.openclaw/workspace
+
+# Remote OpenClaw Gateway
+OPENCLAW_GATEWAY_URL=http://gateway.example.com:8080
+OPENCLAW_API_TOKEN=your-secure-token
 ```
 
-**"Database not found" (cost tracking)**
+---
+
+## 📦 Stack
+
+- **Framework:** Next.js 16.1.6 (App Router, TypeScript)
+- **Styling:** Tailwind CSS 4 + CSS Variables
+- **Database:** SQLite (better-sqlite3) for local data
+- **Editor:** Monaco Editor (VS Code-style)
+- **Charts:** Recharts
+- **UI Icons:** Lucide React
+- **Runtime:** Node.js 18+
+
+### Removed Dependencies
+
+The following 3D/visualization packages have been removed from tenacitOS:
+
+- ❌ `react-three-fiber` — 3D rendering
+- ❌ `three` — 3D library
+- ❌ `@react-three/drei` — 3D helpers
+- ❌ `@react-three/rapier` — Physics engine
+
+---
+
+## 🚢 Deployment
+
+### Vercel (Recommended)
+
+Easiest path for serverless deployment:
 
 ```bash
-npx tsx scripts/collect-usage.ts
+# 1. Push code to GitHub (or GitLab, Bitbucket)
+git push origin main
+
+# 2. Connect repo to Vercel
+# → vercel.com/new → Select your repo
+
+# 3. Set Environment Variables in Vercel dashboard
+ADMIN_PASSWORD=***
+AUTH_SECRET=***
+OPENCLAW_DIR=/path/to/.openclaw
+OPENCLAW_WORKSPACE=/path/to/.openclaw/workspace
+
+# 4. Deploy
+# Vercel auto-deploys on git push
 ```
 
-**Build errors after pulling updates**
+### Self-Hosted (Linux/macOS)
 
 ```bash
-rm -rf .next node_modules
+# 1. Clone repo on server
+git clone <your-repo-url> mission-control
+cd mission-control
+
+# 2. Install and build
 npm install
 npm run build
+
+# 3. Start with PM2 (process manager)
+npm install -g pm2
+pm2 start npm --name "mission-control" -- start
+
+# 4. Setup reverse proxy (nginx)
+# Configure nginx to forward requests to http://localhost:3000
+
+# 5. Enable auto-start on reboot
+pm2 startup
+pm2 save
 ```
 
-**Scripts not executable**
+**Nginx Example:**
+
+```nginx
+server {
+    listen 80;
+    server_name mission.vessel.example.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### Docker (Optional)
+
+```dockerfile
+# Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["npm", "start"]
+```
 
 ```bash
-chmod +x scripts/*.sh
+# Build and run
+docker build -t vessel-mission-control .
+docker run -p 3000:3000 \
+  -e ADMIN_PASSWORD=your-password \
+  -e OPENCLAW_DIR=/home/user/.openclaw \
+  -v /home/user/.openclaw:/home/user/.openclaw \
+  vessel-mission-control
 ```
 
 ---
 
-## Tech Stack
+## 🏗️ Architecture
 
-| Layer | Tech |
-|---|---|
-| Framework | Next.js 15 (App Router) |
-| UI | React 19 + Tailwind CSS v4 |
-| 3D | React Three Fiber + Drei |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Database | SQLite (better-sqlite3) |
-| Runtime | Node.js 22 |
+### Data Flow
+
+```
+[Vessel Agents (OpenClaw)]
+         ↓
+[OpenClaw Gateway / API]
+         ↓
+[Mission Control (Next.js)]
+         ├→ Real-time Status (WebSocket)
+         ├→ Cost Tracking (HTTP polling)
+         ├→ File System (Node.js FS)
+         └→ Database (SQLite)
+         ↓
+[Browser Dashboard (React)]
+```
+
+### Key Components
+
+1. **Dashboard** (`src/app/(dashboard)/page.tsx`)
+   - Agent status overview
+   - Recent activity
+   - System stats
+   - Cost summary
+
+2. **Agents Monitor** (`src/app/(dashboard)/agents/page.tsx`)
+   - Real-time agent list
+   - Individual agent status
+   - Performance metrics
+
+3. **Cost Tracker** (`src/app/(dashboard)/costs/page.tsx`)
+   - Token usage over time
+   - Cost breakdown by model/agent
+   - Budget alerts
+
+4. **Terminal** (`src/app/(dashboard)/terminal/page.tsx`)
+   - Execute OpenClaw commands
+   - Real-time output
+   - History
+
+5. **File Browser** (`src/app/(dashboard)/files/page.tsx`)
+   - Navigate workspace
+   - Create/delete files
+   - Inline preview
 
 ---
 
-## Contributing
+## 🔐 Security
 
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feat/my-feature`)
-3. **Keep personal data out of commits** — use `.env.local` and `data/` (both gitignored)
-4. Write clear commit messages
-5. Open a PR
+- **Admin Password** — Set strong password in `.env.local`
+- **Auth Secret** — 32+ character random string for session tokens
+- **Environment Variables** — Never commit `.env.local`
+- **OpenClaw Integration** — Use API tokens for remote connections
+- **No Secrets in Code** — All sensitive data via environment variables
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for more details.
+### Recommended Security Practices
+
+1. Use strong, unique `ADMIN_PASSWORD`
+2. Generate cryptographically secure `AUTH_SECRET` (32+ chars)
+3. Rotate API tokens regularly
+4. Use HTTPS in production (Vercel/nginx with SSL)
+5. Restrict network access to Mission Control (firewall)
+6. Keep dependencies updated (`npm audit`, `npm update`)
 
 ---
 
-## License
+## 📊 Cost Tracking
 
-MIT — see [LICENSE](./LICENSE)
+Mission Control monitors OpenClaw's token usage and costs:
+
+- **Real-time Display** — Current costs, daily/monthly totals
+- **Breakdown** — Costs by model (Haiku, Sonnet, etc.)
+- **Agent Metrics** — Token usage per agent
+- **Budget Alerts** — Warning at 75% of monthly budget
+
+Powered by OpenClaw's built-in cost tracking.
 
 ---
 
-## Links
+## 🛠️ Development
 
-- [OpenClaw](https://openclaw.ai) — the AI agent runtime this dashboard is built for
-- [OpenClaw Docs](https://docs.openclaw.ai)
-- [Discord Community](https://discord.com/invite/clawd)
-- [GitHub Issues](../../issues) — bug reports and feature requests
+### Running Locally
+
+```bash
+npm run dev
+
+# → http://localhost:3000
+# → Hot reload enabled
+```
+
+### Linting & Type Checking
+
+```bash
+npm run lint          # Run ESLint
+```
+
+TypeScript checks run automatically during build.
+
+### Building for Production
+
+```bash
+npm run build         # Create optimized bundle
+npm start             # Run production server
+```
+
+---
+
+## 📝 License
+
+This project is based on [tenacitOS](https://github.com/carlosazaustre/tenacitOS) and maintains the same license. See **LICENSE** file.
+
+---
+
+## 🔗 Resources
+
+- **OpenClaw** — https://github.com/openclaw/openclaw
+- **Next.js Docs** — https://nextjs.org/docs
+- **Tailwind CSS** — https://tailwindcss.com
+- **tenacitOS** — https://github.com/carlosazaustre/tenacitOS
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📧 Support
+
+For issues, questions, or suggestions:
+
+- **GitHub Issues** — Report bugs and request features
+- **Discussions** — Ask questions, share ideas
+- **Email** — hello@vessel.business
+
+---
+
+**Built with ⛵ for Vessel Business — Empowering experts to build legitimate online businesses.**
