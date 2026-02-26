@@ -1,57 +1,31 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
-// Routes that never require authentication
-const PUBLIC_ROUTES = new Set(["/login"]);
-
-// API routes that are always public (auth endpoints + health check)
-const PUBLIC_API_PREFIXES = ["/api/auth/", "/api/health"];
-
-function isAuthenticated(_request: NextRequest): boolean {
-  // Auth temporarily disabled
-  return true;
-}
+const PROTECTED_ROUTES = ['/', '/community', '/business', '/todos', '/clients'];
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const pathname = request.nextUrl.pathname;
+  
+  // Check if route needs protection
+  const needsAuth = PROTECTED_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  );
 
-  // Always allow public pages (login)
-  if (PUBLIC_ROUTES.has(pathname)) {
+  // Public routes that don't need auth
+  if (pathname.startsWith('/api/webhooks') || pathname === '/login') {
     return NextResponse.next();
   }
 
-  // Always allow public API routes (auth + health)
-  if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-    return NextResponse.next();
-  }
-
-  // Check authentication
-  if (!isAuthenticated(request)) {
-    // For API routes: return 401 JSON (not a redirect)
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "Unauthorized", message: "Authentication required" },
-        { status: 401 }
-      );
+  if (needsAuth) {
+    const authCookie = request.cookies.get('mission-control-auth');
+    
+    if (!authCookie) {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
-
-    // For page routes: redirect to login
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (with extension)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

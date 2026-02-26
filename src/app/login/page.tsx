@@ -1,160 +1,159 @@
-"use client";
+'use client';
 
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Terminal, Lock, AlertCircle } from "lucide-react";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-function LoginForm() {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+export default function LoginPage() {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
+    setError('');
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
 
-      const data = await res.json();
-
-      if (data.success) {
-        const from = searchParams.get("from") || "/";
-        router.push(from);
+      if (response.ok) {
+        router.push('/');
         router.refresh();
       } else {
-        setError("Contraseña incorrecta");
+        setError('Incorrect password');
       }
-    } catch {
-      setError("Error de conexión");
+    } catch (err) {
+      setError('Login failed. Try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
-    <div 
-      className="rounded-xl p-10"
+    <div
       style={{
-        backgroundColor: 'var(--card)',
-        border: '1px solid var(--border)',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--bg)',
       }}
     >
-      {/* Header */}
-      <div className="text-center mb-6 flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2.5">
-          <Terminal 
-            className="w-7 h-7" 
-            style={{ color: 'var(--accent)' }} 
-          />
-          <span className="text-2xl">🦞</span>
-          <h1 
-            className="text-xl font-bold"
-            style={{ 
-              fontFamily: 'var(--font-heading)',
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.5px'
-            }}
-          >
-            Mission Control
-          </h1>
-        </div>
-        <p 
-          className="text-sm"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          Introduce la contraseña para acceder
-        </p>
-      </div>
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="relative">
-          <Lock 
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" 
-            style={{ color: 'var(--text-muted)' }}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 rounded-lg text-sm"
-            style={{
-              backgroundColor: 'var(--card-elevated)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-            }}
-            placeholder="Contraseña"
-            required
-          />
-        </div>
-
-        {error && (
-          <div 
-            className="flex items-center gap-2 text-sm px-4 py-3 rounded-lg"
-            style={{
-              backgroundColor: 'var(--error-bg)',
-              color: 'var(--error)',
-            }}
-          >
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '400px',
+          padding: '40px',
+          backgroundColor: 'var(--surface)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <h1
           style={{
-            backgroundColor: 'var(--accent)',
-            color: 'white',
+            fontSize: '28px',
+            fontWeight: 700,
+            marginBottom: '8px',
+            color: 'var(--text-primary)',
           }}
         >
-          {loading ? "Verificando..." : "Entrar"}
-        </button>
-      </form>
+          ⛵ Vessel
+        </h1>
+        <p
+          style={{
+            fontSize: '14px',
+            color: 'var(--text-muted)',
+            marginBottom: '32px',
+          }}
+        >
+          Mission Control
+        </p>
 
-      {/* Footer */}
-      <p 
-        className="text-center text-xs mt-6"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        VesselOS Agent Dashboard
-      </p>
-    </div>
-  );
-}
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: 600,
+                marginBottom: '8px',
+                color: 'var(--text-primary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg)',
+                color: 'var(--text-primary)',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+              }}
+              disabled={loading}
+              autoFocus
+            />
+          </div>
 
-export default function LoginPage() {
-  return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 -ml-64"
-      style={{ backgroundColor: 'var(--background)' }}
-    >
-      <div className="w-full max-w-md">
-        <Suspense fallback={
-          <div 
-            className="rounded-xl p-10 animate-pulse"
+          {error && (
+            <div
+              style={{
+                padding: '10px 12px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderRadius: '6px',
+                color: '#ef4444',
+                fontSize: '13px',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !password}
             style={{
-              backgroundColor: 'var(--card)',
-              border: '1px solid var(--border)',
+              padding: '10px 16px',
+              backgroundColor: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading || !password ? 0.5 : 1,
+              transition: 'opacity 150ms',
             }}
           >
-            <div className="h-8 bg-gray-700 rounded mb-4" />
-            <div className="h-12 bg-gray-700 rounded mb-4" />
-            <div className="h-10 bg-gray-700 rounded" />
-          </div>
-        }>
-          <LoginForm />
-        </Suspense>
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+
+        <p
+          style={{
+            marginTop: '24px',
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            textAlign: 'center',
+          }}
+        >
+          Mission Control • Powered by Vessel Business
+        </p>
       </div>
     </div>
   );
