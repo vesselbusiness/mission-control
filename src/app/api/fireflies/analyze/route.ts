@@ -13,7 +13,6 @@
  *   - Client transcript file: /workspace/clients/{slug}/transcripts/{date}-{type}.md
  *   - Client TODO_LIST.json (tasks)
  *   - Client PROGRESS.md
- *   - Slack notification
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -443,69 +442,6 @@ ${tasks ? `### Action Items\n${tasks}\n` : ""}
   console.log(`[analyze] Updated PROGRESS.md for ${client_slug}`);
 }
 
-async function sendSlackNotification(
-  client_slug: string,
-  client_name: string,
-  call_type: string,
-  call_date: string,
-  extracted: ExtractedCallData,
-  recording_url: string,
-  confidence: string,
-  transcriptPath: string
-): Promise<void> {
-  try {
-    const slackToken = process.env.SLACK_BOT_TOKEN;
-    if (!slackToken) {
-      console.warn("[analyze] SLACK_BOT_TOKEN not set — skipping Slack notification");
-      return;
-    }
-
-    const taskList = extracted.tasks
-      .slice(0, 3)
-      .map((t) => `• ${t.task}${t.owner_hint ? ` _(${t.owner_hint})_` : ""}`)
-      .join("\n");
-
-    const winList = extracted.wins
-      .slice(0, 2)
-      .map((w) => `• ${w.win}`)
-      .join("\n");
-
-    const message = [
-      `📞 *Call processed: ${client_name} — ${call_type.replace(/-/g, " ")} (${call_date})*`,
-      "",
-      extracted.summary,
-      "",
-      taskList ? `*Action Items:*\n${taskList}` : "",
-      winList ? `*Wins:*\n${winList}` : "",
-      recording_url ? `🎬 <${recording_url}|View Recording>` : "",
-      `_(Client match confidence: ${confidence})_`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    // Post to internal channel (e.g. #call-summaries or a configured channel)
-    const channel = process.env.SLACK_CALL_SUMMARIES_CHANNEL ?? "#call-summaries";
-
-    const res = await fetch("https://slack.com/api/chat.postMessage", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${slackToken}`,
-      },
-      body: JSON.stringify({ channel, text: message }),
-    });
-
-    const slackData = (await res.json()) as { ok: boolean; error?: string };
-    if (!slackData.ok) {
-      console.warn(`[analyze] Slack notification failed: ${slackData.error}`);
-    } else {
-      console.log(`[analyze] Slack notification sent to ${channel}`);
-    }
-  } catch (err) {
-    console.error("[analyze] Slack notification error:", err instanceof Error ? err.message : err);
-  }
-}
-
 // ─── Main Handler ─────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -588,18 +524,6 @@ export async function POST(request: NextRequest) {
       routing.call_type,
       extracted,
       body.recording_url ?? ""
-    );
-
-    // ── 7. Slack notification ──────────────────────────────────────────
-    await sendSlackNotification(
-      routing.client_slug,
-      routing.client_name,
-      routing.call_type,
-      routing.call_date,
-      extracted,
-      body.recording_url ?? "",
-      routing.confidence,
-      transcriptPath
     );
 
     console.log(`[analyze:${reqId}] ✅ Done`);
