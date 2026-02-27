@@ -1,82 +1,92 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { logActivity, getActivities } from '@/lib/activities-db';
+import { NextRequest, NextResponse } from "next/server";
+import { getActivities, Activity } from "@/lib/activity-logger";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 1000);
+  const offset = parseInt(searchParams.get("offset") || "0");
+  const types = searchParams.getAll("type");
+  const statuses = searchParams.getAll("status");
+  const search = searchParams.get("search")?.toLowerCase() || "";
+  const format = searchParams.get("format") || "json";
+
   try {
-    const { searchParams } = new URL(request.url);
+    let activities = getActivities();
 
-    const type = searchParams.get('type') || undefined;
-    const status = searchParams.get('status') || undefined;
-    const agent = searchParams.get('agent') || undefined;
-    const startDate = searchParams.get('startDate') || undefined;
-    const endDate = searchParams.get('endDate') || undefined;
-    const sort = (searchParams.get('sort') || 'newest') as 'newest' | 'oldest';
-    const format = searchParams.get('format') || 'json';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), format === 'csv' ? 10000 : 100);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    // Filter by types
+    if (types.length > 0) {
+      activities = activities.filter((a) => types.includes(a.type));
+    }
 
-    const result = getActivities({ type, status, agent, startDate, endDate, sort, limit, offset });
+    // Filter by statuses
+    if (statuses.length > 0) {
+      activities = activities.filter((a) => statuses.includes(a.status));
+    }
+
+    // Filter by search term
+    if (search) {
+      activities = activities.filter(
+        (a) =>
+          a.description.toLowerCase().includes(search) ||
+          a.type.toLowerCase().includes(search) ||
+          a.id.toLowerCase().includes(search)
+      );
+    }
+
+    const total = activities.length;
 
     // CSV export
-    if (format === 'csv') {
-      const header = 'id,timestamp,type,description,status,duration_ms,tokens_used,agent\n';
-      const rows = result.activities.map((a) => [
-        a.id, a.timestamp, a.type,
-        `"${(a.description || '').replace(/"/g, '""')}"`,
-        a.status, a.duration_ms ?? '', a.tokens_used ?? '',
-        a.agent ?? '',
-      ].join(',')).join('\n');
-      const csv = header + rows;
+    if (format === "csv") {
+      const headers = [
+        "ID",
+        "Timestamp",
+        "Type",
+        "Status",
+        "Description",
+        "Duration (ms)",
+        "Tokens Used",
+      ];
+      const rows = activities
+        .slice(offset, offset + limit)
+        .map((a) => [
+          a.id,
+          a.timestamp,
+          a.type,
+          a.status,
+          `"${a.description.replace(/"/g, '""')}"`,
+          a.duration_ms || "",
+          a.tokens_used || "",
+        ]);
+
+      const csv =
+        [headers, ...rows]
+          .map((row) => row.join(","))
+          .join("\n") + "\n";
+
       return new NextResponse(csv, {
         headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="activities-${new Date().toISOString().split('T')[0]}.csv"`,
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="activities-${new Date().toISOString().split("T")[0]}.csv"`,
         },
       });
     }
 
+    // JSON response with pagination
+    const paginated = activities.slice(offset, offset + limit);
     return NextResponse.json({
-      activities: result.activities,
-      total: result.total,
+      activities: paginated,
+      total,
       limit,
       offset,
-      hasMore: offset + limit < result.total,
+      hasMore: offset + limit < total,
     });
   } catch (error) {
-    console.error('Failed to get activities:', error);
-    return NextResponse.json({ error: 'Failed to get activities' }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-
-    if (!body.type || !body.description || !body.status) {
-      return NextResponse.json(
-        { error: 'Missing required fields: type, description, status' },
-        { status: 400 }
-      );
-    }
-
-    const validStatuses = ['success', 'error', 'pending', 'running'];
-    if (!validStatuses.includes(body.status)) {
-      return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    const activity = logActivity(body.type, body.description, body.status, {
-      duration_ms: body.duration_ms ?? null,
-      tokens_used: body.tokens_used ?? null,
-      agent: body.agent ?? null,
-      metadata: body.metadata ?? null,
-    });
-
-    return NextResponse.json(activity, { status: 201 });
-  } catch (error) {
-    console.error('Failed to save activity:', error);
-    return NextResponse.json({ error: 'Failed to save activity' }, { status: 500 });
+    console.error("Error fetching activities:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch activities" },
+      { status: 500 }
+    );
   }
 }

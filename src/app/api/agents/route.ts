@@ -40,10 +40,10 @@ const DEFAULT_AGENT_CONFIG: Record<string, { emoji: string; color: string; name?
  * Get agent display info (emoji, color, name) from openclaw.json or defaults
  */
 function getAgentDisplayInfo(agentId: string, agentConfig: any): { emoji: string; color: string; name: string } {
-  // First try to get from agent's own config in openclaw.json
-  const configEmoji = agentConfig?.ui?.emoji;
-  const configColor = agentConfig?.ui?.color;
-  const configName = agentConfig?.name;
+  // First try to get from agent's own config in openclaw.json (identity block)
+  const configEmoji = agentConfig?.identity?.emoji || agentConfig?.ui?.emoji;
+  const configColor = agentConfig?.identity?.color || agentConfig?.ui?.color;
+  const configName = agentConfig?.identity?.name || agentConfig?.name;
 
   // Then try defaults
   const defaults = DEFAULT_AGENT_CONFIG[agentId];

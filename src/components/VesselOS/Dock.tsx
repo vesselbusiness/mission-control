@@ -8,7 +8,6 @@ import {
   FolderOpen,
   Brain,
   Bot,
-  Building2,
   Activity,
   Clock,
   Puzzle,
@@ -16,18 +15,21 @@ import {
   Settings,
   History,
   Users,
+  CheckSquare,
+  Mic,
 } from "lucide-react";
 
 const dockItems = [
   { href: "/", label: "Dashboard", icon: Home },
   // ── Vessel Business ──────────────────────────────
   { href: "/clients", label: "Clients", icon: Users },
+  { href: "/todos", label: "Tasks", icon: CheckSquare },
+  { href: "/uploads", label: "Upload Call", icon: Mic },
   // ─────────────────────────────────────────────────
   { href: "/system", label: "System Monitor", icon: Monitor },
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/memory", label: "Memory", icon: Brain },
   { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/office", label: "Office", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/cron", label: "Cron Jobs", icon: Clock },
   { href: "/sessions", label: "Sessions", icon: History },

@@ -22,6 +22,7 @@ import { Anthropic } from "@anthropic-ai/sdk";
 const WORKSPACE =
   process.env.OPENCLAW_WORKSPACE ?? "/Users/vincent/.openclaw/workspace";
 const CLIENTS_DIR = path.join(WORKSPACE, "clients");
+// Legacy: flat transcripts dir; new path is clients/{slug}/transcripts/
 const TRANSCRIPTS_DIR = path.join(WORKSPACE, "call_transcripts");
 const ERRORS_LOG = path.join(WORKSPACE, "call_processor_errors.log");
 
@@ -68,6 +69,14 @@ interface ExtractedCallData {
 
 interface CallProcessorRequest {
   webhook_payload: FirefliesWebhook;
+  /** Pre-fetched transcript text — skip Fireflies API fetch if provided */
+  transcript?: string;
+  /** Pre-analyzed routing metadata — skip title parsing if provided */
+  metadata?: {
+    client_slug: string;
+    call_date: string;
+    call_type: string;
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -406,12 +415,16 @@ async function storeTranscript(
   transcript_id: string
 ): Promise<void> {
   try {
-    const clientDir = path.join(TRANSCRIPTS_DIR, client_slug);
-    await fs.mkdir(clientDir, { recursive: true });
+    // Save to new canonical location: clients/{slug}/transcripts/
+    const clientTranscriptsDir = path.join(CLIENTS_DIR, client_slug, "transcripts");
+    await fs.mkdir(clientTranscriptsDir, { recursive: true });
 
-    // Save full transcript
-    const transcriptFilename = `${call_date}_${call_type}.md`;
-    const transcriptPath = path.join(clientDir, transcriptFilename);
+    // Also maintain legacy location for backwards compat
+    const legacyDir = path.join(TRANSCRIPTS_DIR, client_slug);
+    await fs.mkdir(legacyDir, { recursive: true });
+
+    const transcriptFilename = `${call_date}-${call_type}.md`;
+    const transcriptPath = path.join(clientTranscriptsDir, transcriptFilename);
 
     const participants = data.participants.join(", ");
     const header = `# Call Transcript
@@ -427,8 +440,8 @@ async function storeTranscript(
 
     await fs.writeFile(transcriptPath, header + transcript, "utf-8");
 
-    // Update calls.json metadata
-    const callsJsonPath = path.join(clientDir, "calls.json");
+    // Update calls.json metadata (in client folder)
+    const callsJsonPath = path.join(clientTranscriptsDir, "calls.json");
     let callsData: unknown[] = [];
     try {
       const raw = await fs.readFile(callsJsonPath, "utf-8");
@@ -566,26 +579,50 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CallProcessorRequest;
     const webhook = body.webhook_payload;
 
-    // ─── Parse metadata ───────────────────────────────────────────────────
-    const match = webhook.meeting_title.match(
-      /^([a-z0-9-]+)-(\d{4}-\d{2}-\d{2})-(.+)$/
-    );
-    if (!match) {
-      throw new Error(`Could not parse meeting_title: ${webhook.meeting_title}`);
+    // ─── Resolve metadata (pre-analyzed or parsed from title) ─────────────
+    let client_slug: string;
+    let call_date: string;
+    let call_type: string;
+
+    if (body.metadata) {
+      // Use pre-analyzed metadata from the AI analyzer
+      ({ client_slug, call_date, call_type } = body.metadata);
+      console.log(
+        `[call-processor:${processorId}] Using pre-analyzed metadata:`,
+        `${client_slug} | ${call_date} | ${call_type}`
+      );
+    } else {
+      // Fall back to parsing meeting_title
+      const match = webhook.meeting_title.match(
+        /^([a-z0-9-]+)-(\d{4}-\d{2}-\d{2})-(.+)$/
+      );
+      if (!match) {
+        throw new Error(
+          `Could not parse meeting_title: "${webhook.meeting_title}". ` +
+          `Expected format: {client-slug}-{YYYY-MM-DD}-{call-type}. ` +
+          `Consider using /api/fireflies/analyze instead for AI-powered routing.`
+        );
+      }
+      [, client_slug, call_date, call_type] = match;
+      console.log(
+        `[call-processor:${processorId}] Parsed from title:`,
+        `${client_slug} | ${call_date} | ${call_type}`
+      );
     }
 
-    const [, client_slug, call_date, call_type] = match;
-
+    // ─── Fetch or use pre-provided transcript ──────────────────────────
+    let transcript: string;
+    if (body.transcript) {
+      transcript = body.transcript;
+      console.log(
+        `[call-processor:${processorId}] Using pre-fetched transcript (${transcript.length} chars)`
+      );
+    } else {
+      console.log(`[call-processor:${processorId}] Fetching transcript...`);
+      transcript = await fetchFirefliesTranscript(webhook.transcript_id);
+    }
     console.log(
-      `[call-processor:${processorId}] Processing:`,
-      `${client_slug} | ${call_date} | ${call_type}`
-    );
-
-    // ─── Fetch transcript from Fireflies ────────────────────────────────
-    console.log(`[call-processor:${processorId}] Fetching transcript...`);
-    const transcript = await fetchFirefliesTranscript(webhook.transcript_id);
-    console.log(
-      `[call-processor:${processorId}] Transcript fetched: ${transcript.length} chars`
+      `[call-processor:${processorId}] Transcript ready: ${transcript.length} chars`
     );
 
     // ─── Extract data via Claude ──────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, User, Command } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { BRANDING } from "@/config/branding";
@@ -117,44 +117,6 @@ export function TopBar() {
 
           {/* Notifications Dropdown */}
           <NotificationDropdown />
-
-          {/* User Area */}
-          <div className="flex items-center gap-2">
-            {/* Avatar */}
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "14px",
-                backgroundColor: "var(--accent)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-heading)",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: "var(--text-primary)",
-                }}
-              >
-                C
-              </span>
-            </div>
-            {/* Name */}
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "12px",
-                fontWeight: 500,
-                color: "var(--text-secondary)",
-              }}
-            >
-              Carlos
-            </span>
-          </div>
         </div>
       </div>
 
