@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
+import { appendClientMemoryEvent } from '@/lib/client-memory';
 
 const WORKSPACE = process.env.WORKSPACE || '/Users/vincent/.openclaw/workspace';
 
@@ -91,6 +92,14 @@ export async function POST(
     
     todos.tasks.push(newTask);
     await saveTodos(slug, todos);
+
+    await appendClientMemoryEvent(slug, {
+      source: 'todos',
+      action: 'create',
+      entityId: newTask.id,
+      summary: `Added todo: ${newTask.label.slice(0, 120)}`,
+      data: newTask,
+    });
     
     return NextResponse.json(newTask, { status: 201 });
   } catch (err) {

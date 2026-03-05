@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
+import { appendClientMemoryEvent } from "@/lib/client-memory";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const content = await request.text();
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content, "utf-8");
+
+    await appendClientMemoryEvent(slug, {
+      source: "docs",
+      action: "update",
+      entityId: file,
+      summary: `Updated doc: ${file}`,
+      data: { file, chars: content.length },
+    });
 
     return NextResponse.json({
       success: true,

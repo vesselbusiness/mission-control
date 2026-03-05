@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
+import { appendClientMemoryEvent } from "@/lib/client-memory";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,83 @@ function dateFromFilename(filename: string): string | null {
 
 type Params = { params: Promise<{ slug: string }> };
 
+// ─── Helpers: parse Fireflies transcript MD into a CoachingCall ──────────────
+
+/**
+ * Fireflies-analyzed transcripts land in clients/{slug}/transcripts/ as:
+ *   {YYYY-MM-DD}-{call-type}.md
+ *
+ * The markdown header contains Summary, Key Insights, Wins, Blockers, Action Items.
+ * We parse those into a CoachingCall shape so they render in the same UI.
+ */
+function parseFirefliesTranscript(filename: string, content: string): CoachingCall | null {
+  // Extract date and call type from filename: "2026-02-25-1-on-1.md"
+  const match = filename.match(/^(\d{4}-\d{2}-\d{2})-(.+)\.md$/);
+  if (!match) return null;
+
+  const date = match[1];
+  const callType = match[2].replace(/-/g, " ");
+
+  // Parse header sections
+  const overview = extractSection(content, "Summary") ||
+    extractSection(content, "Overview") || "";
+  const ahas = extractBullets(content, "Key Insights");
+  const decisions = extractBullets(content, "Decisions");
+  const openLoops = extractBullets(content, "Blockers").concat(extractBullets(content, "Open Loops"));
+  const parkedIdeas = extractBullets(content, "Parked Ideas").concat(extractBullets(content, "Ideas"));
+  const followUpNotes = extractSection(content, "Follow") || "";
+
+  // Parse action items into todos
+  const rawTodos = extractBullets(content, "Action Items");
+  const todos: CallTodo[] = rawTodos.map((t, i) => {
+    const ownerMatch = t.match(/\(?(Bobby|Sarah|Client)\)?/i);
+    const owner = ownerMatch
+      ? (ownerMatch[1].toLowerCase() as "bobby" | "sarah" | "client")
+      : "sarah";
+    return {
+      id: `ff-todo-${date}-${i}`,
+      description: t.replace(/\s*\(?(Bobby|Sarah|Client)\)?\s*/i, "").replace(/^-\s*\[\s*[x ]?\s*\]\s*/, "").trim(),
+      owner,
+      completed: t.includes("[x]"),
+    };
+  });
+
+  // Extract video URL from header if present
+  const videoMatch = content.match(/\*\*Recording:\*\*\s*\[?(?:Link\])?\(?([^\s)]+)\)?/);
+  const videoUrl = videoMatch ? videoMatch[1] : "";
+
+  return {
+    id: `ff-${date}-${match[2]}`,
+    date,
+    videoUrl,
+    overview,
+    ahas,
+    decisions,
+    openLoops,
+    todos,
+    parkedIdeas,
+    followUpNotes: `Call type: ${callType}. ${followUpNotes}`.trim(),
+    transcriptFile: filename,
+    analyzed: true,
+    source: "fireflies",
+  } as CoachingCall & { source: string };
+}
+
+function extractSection(content: string, heading: string): string {
+  const regex = new RegExp(`##\\s+${heading}[^\n]*\n([^#]+)`, "i");
+  const match = content.match(regex);
+  return match ? match[1].trim() : "";
+}
+
+function extractBullets(content: string, heading: string): string[] {
+  const section = extractSection(content, heading);
+  if (!section) return [];
+  return section
+    .split("\n")
+    .map((l) => l.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+}
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
 export async function GET(
@@ -79,28 +157,41 @@ export async function GET(
   try {
     const { slug } = await params;
     const callsDir = path.join(CLIENTS_DIR, slug, "calls");
-
-    let entries: string[] = [];
-    try {
-      entries = await fs.readdir(callsDir);
-    } catch {
-      // Directory doesn't exist yet — return empty list
-      return NextResponse.json({ calls: [] });
-    }
-
-    const jsonFiles = entries.filter(
-      (f) => f.startsWith("CALL_") && f.endsWith(".json") && !f.includes("TRANSCRIPT")
-    );
+    const transcriptsDir = path.join(CLIENTS_DIR, slug, "transcripts");
 
     const calls: CoachingCall[] = [];
-    for (const file of jsonFiles) {
-      try {
-        const raw = await fs.readFile(path.join(callsDir, file), "utf-8");
-        calls.push(JSON.parse(raw) as CoachingCall);
-      } catch {
-        // Skip corrupt files
+
+    // ── 1. Read structured calls/ JSON files (manual uploads) ────────────
+    try {
+      const entries = await fs.readdir(callsDir);
+      const jsonFiles = entries.filter(
+        (f) => f.startsWith("CALL_") && f.endsWith(".json") && !f.includes("TRANSCRIPT")
+      );
+      for (const file of jsonFiles) {
+        try {
+          const raw = await fs.readFile(path.join(callsDir, file), "utf-8");
+          const call = JSON.parse(raw) as CoachingCall;
+          calls.push({ ...call, source: "manual" } as CoachingCall & { source: string });
+        } catch { /* skip corrupt */ }
       }
-    }
+    } catch { /* calls/ dir doesn't exist yet */ }
+
+    // ── 2. Read transcripts/ MD files (Fireflies auto-analyzed) ──────────
+    try {
+      const entries = await fs.readdir(transcriptsDir);
+      const mdFiles = entries.filter((f) => f.endsWith(".md"));
+      for (const file of mdFiles) {
+        try {
+          // Skip if we already have a structured call for this date
+          const dateMatch = file.match(/^(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch && calls.some((c) => c.date === dateMatch[1])) continue;
+
+          const content = await fs.readFile(path.join(transcriptsDir, file), "utf-8");
+          const parsed = parseFirefliesTranscript(file, content);
+          if (parsed) calls.push(parsed);
+        } catch { /* skip */ }
+      }
+    } catch { /* transcripts/ dir doesn't exist yet */ }
 
     // Sort newest first
     calls.sort((a, b) => b.date.localeCompare(a.date));
@@ -187,7 +278,7 @@ export async function POST(
     let ahas: string[] = [];
     let decisions: string[] = [];
     let openLoops: string[] = [];
-    let rawTodos: Array<{ description: string; owner: string }> = [];
+    let rawTodos: Array<{ description: string; owner: string; deadline?: string }> = [];
     let parkedIdeas: string[] = [];
     let followUpNotes = "";
     let aiError: string | undefined;
@@ -201,18 +292,45 @@ export async function POST(
           ? transcriptText.slice(0, 12000) + "\n\n[... truncated ...]"
           : transcriptText;
 
-      const systemPrompt = `You are analyzing a coaching call transcript for an expert business coach.
-Extract the following and return ONLY valid JSON (no markdown, no explanation):
+      const systemPrompt = `You are a Weekly Coaching Call Analyst and Executive Note-Taker.
+Return ONLY valid JSON (no markdown, no explanation) using exactly these keys:
+overview, ahas, decisions, openLoops, todos, parkedIdeas, followUpNotes
 
-1. overview — 2-3 sentences summarizing what was discussed
-2. ahas — array of 5-10 bullet strings: key insights or breakthroughs from the call
-3. decisions — array of 5-10 bullet strings: things that were decided or locked in
-4. openLoops — array of 3-7 bullet strings: unresolved questions or clarifications needed
-5. todos — array of objects with "description" (string) and "owner" (one of: "sarah", "bobby", "client"). Extract specific action items. If owner is mentioned (Sarah, Bobby, or the client/their name), assign accordingly. Default to "sarah".
-6. parkedIdeas — array of 3-7 strings: things mentioned to revisit later, not urgent
-7. followUpNotes — string: closing remarks, next meeting date, any context for future
+CRITICAL RULES:
+- Do not invent tasks, decisions, or insights.
+- Distinguish clearly between decisions (locked), open loops (not finalized), and parked ideas (not now).
+- Not everything discussed becomes a task.
+- Keep output concise and execution-focused.
 
-Return JSON with exactly these keys: overview, ahas, decisions, openLoops, todos, parkedIdeas, followUpNotes`;
+OUTPUT REQUIREMENTS:
+1) overview
+- Write as short structured text for fast scan:
+  - What happened (30-sec summary)
+  - Client state (moving/stuck/at-risk)
+  - What Sarah/Bobby should do next
+
+2) ahas
+- Meaningful breakthroughs only (0-8 items)
+
+3) decisions
+- Only clearly agreed decisions. If none, return [].
+
+4) openLoops
+- Items discussed but unresolved / needs follow-up.
+
+5) todos
+- Array of objects: { description, owner, deadline? }
+- owner MUST be one of: "sarah", "bobby", "client"
+- Only include deadline when explicitly stated in transcript (e.g., "by next call", specific date).
+- If deadline is not explicit, omit it.
+- Keep tasks in call action-items context (no assumptions about task-board push).
+
+6) parkedIdeas
+- Ideas intentionally deferred.
+
+7) followUpNotes
+- Concise execution notes for next call.
+`;
 
       const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -244,7 +362,7 @@ Return JSON with exactly these keys: overview, ahas, decisions, openLoops, todos
         ahas?: string[];
         decisions?: string[];
         openLoops?: string[];
-        todos?: Array<{ description: string; owner: string }>;
+        todos?: Array<{ description: string; owner: string; deadline?: string }>;
         parkedIdeas?: string[];
         followUpNotes?: string;
       };
@@ -269,11 +387,13 @@ Return JSON with exactly these keys: overview, ahas, decisions, openLoops, todos
       )
         ? ((t.owner ?? "").toLowerCase() as "sarah" | "bobby" | "client")
         : "sarah";
+      const deadline = typeof t.deadline === "string" && t.deadline.trim() ? t.deadline.trim() : undefined;
       return {
         id: `todo-${callDate}-${i}`,
         description: t.description ?? "",
         owner,
         completed: false,
+        ...(deadline ? { deadline } : {}),
       };
     });
 
@@ -295,50 +415,22 @@ Return JSON with exactly these keys: overview, ahas, decisions, openLoops, todos
 
     await fs.writeFile(metaPath, JSON.stringify(callMeta, null, 2), "utf-8");
 
-    // ── Push todos to Tasks board ────────────────────────────────────────
+    // ── Do NOT auto-push call todos to global/client task board ───────────
+    // Tasks remain in the call Action Items area until manually pushed in UI.
     const todoPushResults: Array<{ idx: number; taskId?: string; error?: string }> = [];
-    if (analyzed && normalizedTodos.length > 0) {
-      for (let i = 0; i < normalizedTodos.length; i++) {
-        const todo = normalizedTodos[i];
-        try {
-          const todoRes = await fetch(
-            `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/todos`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: todo.description,
-                description: `From coaching call on ${callDate}`,
-                assignee: todo.owner,
-                priority: "medium",
-                status: "open",
-                created_by: "agent",
-                client_slug: slug,
-              }),
-            }
-          );
-          if (todoRes.ok) {
-            const todoData = (await todoRes.json()) as { todo?: { id?: string } };
-            const taskId = todoData.todo?.id;
-            if (taskId) {
-              normalizedTodos[i].taskBoardId = taskId;
-              todoPushResults.push({ idx: i, taskId });
-            }
-          } else {
-            todoPushResults.push({ idx: i, error: `HTTP ${todoRes.status}` });
-          }
-        } catch (err) {
-          todoPushResults.push({
-            idx: i,
-            error: err instanceof Error ? err.message : "Unknown",
-          });
-        }
-      }
 
-      // Re-save with updated taskBoardIds
-      callMeta.todos = normalizedTodos;
-      await fs.writeFile(metaPath, JSON.stringify(callMeta, null, 2), "utf-8");
-    }
+    await appendClientMemoryEvent(slug, {
+      source: "calls",
+      action: "create",
+      entityId: callMeta.id,
+      summary: `Added coaching call ${callMeta.date}${videoUrl ? " with video URL" : ""}`,
+      data: {
+        date: callMeta.date,
+        decisions: callMeta.decisions.length,
+        todos: callMeta.todos.length,
+        analyzed: callMeta.analyzed,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -386,6 +478,14 @@ export async function PATCH(
 
     const updated = { ...existing, ...updates };
     await fs.writeFile(metaPath, JSON.stringify(updated, null, 2), "utf-8");
+
+    await appendClientMemoryEvent(slug, {
+      source: "calls",
+      action: "update",
+      entityId: updated.id,
+      summary: `Updated coaching call ${updated.date}`,
+      data: { updatedKeys: Object.keys(updates || {}) },
+    });
 
     return NextResponse.json({ success: true, call: updated });
   } catch (err) {

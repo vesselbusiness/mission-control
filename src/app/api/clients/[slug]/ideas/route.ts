@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { appendClientMemoryEvent } from "@/lib/client-memory";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,14 @@ export async function POST(
     // Save
     await fs.mkdir(clientDir, { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+
+    await appendClientMemoryEvent(slug, {
+      source: "ideas",
+      action: "create",
+      entityId: newIdea.id,
+      summary: `Added idea: ${newIdea.text.slice(0, 120)}`,
+      data: newIdea,
+    });
 
     return NextResponse.json({ success: true, idea: newIdea });
   } catch (error) {

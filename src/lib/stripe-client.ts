@@ -97,6 +97,9 @@ function getMockData(): StripeSummary {
 // ─── Live Stripe fetch ────────────────────────────────────────────────────────
 
 async function fetchFromStripe(secretKey: string): Promise<StripeSummary> {
+  // Diagnostic: log key type so we can confirm rk_ vs sk_
+  console.log('[stripe-client] Key prefix:', secretKey.substring(0, 7));
+
   const headers = {
     Authorization: `Bearer ${secretKey}`,
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -111,8 +114,21 @@ async function fetchFromStripe(secretKey: string): Promise<StripeSummary> {
     fetch(`https://api.stripe.com/v1/charges?limit=10&created[gte]=${sevenDaysAgo}`, { headers }),
   ]);
 
-  if (!subsRes.ok || !balanceRes.ok || !chargesRes.ok) {
-    throw new Error('Stripe API returned an error');
+  // Log individual failures with Stripe's error message
+  if (!subsRes.ok) {
+    const body = await subsRes.json().catch(() => ({}));
+    console.error('[stripe-client] subscriptions.list failed:', subsRes.status, body?.error?.message ?? body);
+    throw new Error(`Stripe subscriptions error: ${subsRes.status} — ${body?.error?.message ?? 'unknown'}`);
+  }
+  if (!balanceRes.ok) {
+    const body = await balanceRes.json().catch(() => ({}));
+    console.error('[stripe-client] balance.retrieve failed:', balanceRes.status, body?.error?.message ?? body);
+    throw new Error(`Stripe balance error: ${balanceRes.status} — ${body?.error?.message ?? 'unknown'}`);
+  }
+  if (!chargesRes.ok) {
+    const body = await chargesRes.json().catch(() => ({}));
+    console.error('[stripe-client] charges.list failed:', chargesRes.status, body?.error?.message ?? body);
+    throw new Error(`Stripe charges error: ${chargesRes.status} — ${body?.error?.message ?? 'unknown'}`);
   }
 
   const [subsJson, balanceJson, chargesJson] = await Promise.all([
@@ -142,15 +158,17 @@ async function fetchFromStripe(secretKey: string): Promise<StripeSummary> {
   const activeSubscriptions = subsJson.total_count ?? 0;
   const mrr = activeSubscriptions * 127;
 
-  const recentCharges: RecentCharge[] = chargesJson.data.map((charge) => ({
-    id: charge.id,
-    amount: charge.amount / 100,
-    currency: charge.currency,
-    status: charge.status,
-    description: charge.description,
-    created: new Date(charge.created * 1000).toISOString(),
-    customerEmail: charge.billing_details?.email ?? charge.receipt_email ?? null,
-  }));
+  const recentCharges: RecentCharge[] = chargesJson.data
+    .filter((charge) => !charge.description?.toLowerCase().includes('auto-recharge'))
+    .map((charge) => ({
+      id: charge.id,
+      amount: charge.amount / 100,
+      currency: charge.currency,
+      status: charge.status,
+      description: charge.description,
+      created: new Date(charge.created * 1000).toISOString(),
+      customerEmail: charge.billing_details?.email ?? charge.receipt_email ?? null,
+    }));
 
   return {
     activeSubscriptions,
@@ -173,6 +191,7 @@ export async function getStripeSummary(): Promise<StripeSummary> {
 
   // No API key → return mock data (no cache needed, it's instant)
   if (!secretKey) {
+    console.warn('[stripe-client] No STRIPE_SECRET_KEY set — using mock data');
     return getMockData();
   }
 

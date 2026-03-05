@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { appendClientMemoryEvent } from '@/lib/client-memory';
 
 const WORKSPACE = process.env.WORKSPACE || '/Users/vincent/.openclaw/workspace';
 
@@ -70,6 +71,14 @@ export async function PATCH(
     
     todos.tasks[taskIndex] = task;
     await saveTodos(slug, todos);
+
+    await appendClientMemoryEvent(slug, {
+      source: 'todos',
+      action: 'update',
+      entityId: task.id,
+      summary: `Updated todo: ${task.label.slice(0, 120)}`,
+      data: updates,
+    });
     
     return NextResponse.json(task);
   } catch (err) {
@@ -94,6 +103,13 @@ export async function DELETE(
     }
     
     await saveTodos(slug, todos);
+
+    await appendClientMemoryEvent(slug, {
+      source: 'todos',
+      action: 'delete',
+      entityId: id,
+      summary: `Deleted todo ${id}`,
+    });
     
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { Anthropic } from "@anthropic-ai/sdk";
+
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 minutes for processing
@@ -227,7 +227,10 @@ async function analyzeTranscript(
   transcriptParticipants: string[],
   availableClients: ClientInfo[]
 ): Promise<{ routing: RoutingDecision; extracted: ExtractedCallData }> {
-  const claude = new Anthropic();
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
+    throw new Error("OPENAI_API_KEY not configured");
+  }
 
   const clientList = availableClients
     .map((c) => `- ${c.name} (slug: ${c.slug})`)
@@ -293,18 +296,37 @@ Participants listed: ${transcriptParticipants.join(", ") || "(none listed)"}
 Transcript:
 ${transcriptText.length > 20000 ? transcriptText.slice(0, 20000) + "\n\n[... transcript truncated ...]" : transcriptText}`;
 
-  const response = await claude.messages.create({
-    model: "claude-opus-4-5",
-    max_tokens: 3000,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.1,
+      max_tokens: 3000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") throw new Error("Unexpected Claude response type");
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI API error (${response.status}): ${err.slice(0, 500)}`);
+  }
+
+  const completion = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+
+  const text = completion.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Unexpected OpenAI response: missing content");
 
   // Strip potential markdown fences
-  let jsonStr = content.text.trim();
+  let jsonStr = text.trim();
   if (jsonStr.startsWith("```")) {
     jsonStr = jsonStr.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "");
   }
@@ -312,7 +334,7 @@ ${transcriptText.length > 20000 ? transcriptText.slice(0, 20000) + "\n\n[... tra
   const parsed = JSON.parse(jsonStr) as { routing: RoutingDecision; extracted: ExtractedCallData };
 
   if (!parsed.routing?.client_slug || !parsed.extracted) {
-    throw new Error("Invalid structure in Claude response");
+    throw new Error("Invalid structure in AI response");
   }
 
   return parsed;
@@ -442,6 +464,57 @@ ${tasks ? `### Action Items\n${tasks}\n` : ""}
   console.log(`[analyze] Updated PROGRESS.md for ${client_slug}`);
 }
 
+async function saveLegacyCallFiles(
+  client_slug: string,
+  call_date: string,
+  transcriptText: string,
+  extracted: ExtractedCallData,
+  recording_url: string
+): Promise<{ callJsonPath: string; callTranscriptPath: string }> {
+  const callsDir = path.join(CLIENTS_DIR, client_slug, "calls");
+  await fs.mkdir(callsDir, { recursive: true });
+
+  const fileDate = call_date.replace(/-/g, "_");
+  const transcriptFilename = `CALL_${fileDate}_TRANSCRIPT.md`;
+  const callFilename = `CALL_${fileDate}.json`;
+
+  const callTranscriptPath = path.join(callsDir, transcriptFilename);
+  const callJsonPath = path.join(callsDir, callFilename);
+
+  await fs.writeFile(callTranscriptPath, transcriptText, "utf-8");
+
+  const ownerMap: Record<string, "sarah" | "bobby" | "client"> = {
+    Sarah: "sarah",
+    Bobby: "bobby",
+    Client: "client",
+  };
+
+  const callData = {
+    id: call_date,
+    date: call_date,
+    videoUrl: recording_url ?? "",
+    overview: extracted.summary || "",
+    ahas: extracted.insights.map((i) => i.key_insight),
+    decisions: extracted.wins.map((w) => w.win),
+    openLoops: extracted.blockers.map((b) => `${b.blocker}${b.impact ? ` — ${b.impact}` : ""}`),
+    todos: extracted.tasks.map((t, idx) => ({
+      id: `todo-${call_date}-${idx}`,
+      description: t.task,
+      owner: t.owner_hint ? ownerMap[t.owner_hint] ?? "client" : "client",
+      completed: false,
+    })),
+    parkedIdeas: extracted.ideas.map((i) => i.idea),
+    followUpNotes: extracted.insights.map((i) => i.next_steps).filter(Boolean).join("\n") || "",
+    transcriptFile: transcriptFilename,
+    analyzed: true,
+  };
+
+  await fs.writeFile(callJsonPath, JSON.stringify(callData, null, 2), "utf-8");
+  console.log(`[analyze] Saved legacy call files: ${callJsonPath}`);
+
+  return { callJsonPath, callTranscriptPath };
+}
+
 // ─── Main Handler ─────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -483,8 +556,8 @@ export async function POST(request: NextRequest) {
     const clients = await getAvailableClients();
     console.log(`[analyze:${reqId}] Found ${clients.length} clients: ${clients.map((c) => c.slug).join(", ")}`);
 
-    // ── 3. Claude analysis ──────────────────────────────────────────────
-    console.log(`[analyze:${reqId}] Running Claude analysis...`);
+    // ── 3. AI analysis ─────────────────────────────────────────────────
+    console.log(`[analyze:${reqId}] Running AI analysis...`);
     const { routing, extracted } = await analyzeTranscript(
       transcriptData.text,
       transcriptData.title || body.meeting_title || "",
@@ -509,7 +582,16 @@ export async function POST(request: NextRequest) {
       body.meeting_id ?? ""
     );
 
-    // ── 5. Create tasks ────────────────────────────────────────────────
+    // ── 5. Save in legacy calls/ format for Mission Control parity ─────
+    const legacyPaths = await saveLegacyCallFiles(
+      routing.client_slug,
+      routing.call_date,
+      transcriptData.text,
+      extracted,
+      body.recording_url ?? ""
+    );
+
+    // ── 6. Create tasks ────────────────────────────────────────────────
     await createTasks(
       routing.client_slug,
       extracted.tasks,
@@ -517,7 +599,7 @@ export async function POST(request: NextRequest) {
       routing.call_type
     );
 
-    // ── 6. Update PROGRESS.md ──────────────────────────────────────────
+    // ── 7. Update PROGRESS.md ──────────────────────────────────────────
     await updateProgress(
       routing.client_slug,
       routing.call_date,
@@ -533,6 +615,8 @@ export async function POST(request: NextRequest) {
       reqId,
       routing,
       transcript_path: transcriptPath,
+      legacy_call_json: legacyPaths.callJsonPath,
+      legacy_call_transcript: legacyPaths.callTranscriptPath,
       extracted: {
         tasks: extracted.tasks.length,
         ideas: extracted.ideas.length,
