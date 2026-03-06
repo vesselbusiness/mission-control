@@ -18,7 +18,13 @@ type Params = { params: Promise<{ slug: string }> };
 
 interface Idea {
   id: string;
+  type?: "idea" | "inspo";
+  title?: string;
   text: string;
+  images?: string[];
+  urls?: string[];
+  author?: "bobby" | "sarah" | "client";
+  source?: string;
   created_at: string;
 }
 
@@ -55,10 +61,20 @@ export async function POST(
     const { slug } = await params;
     const clientDir = path.join(CLIENTS_DIR, slug);
     const filePath = path.join(clientDir, "IDEA_BOARD.json");
-    const body = (await request.json()) as { text: string };
+    const body = (await request.json()) as {
+      text?: string;
+      type?: "idea" | "inspo";
+      title?: string;
+      images?: string[];
+      urls?: string[];
+      author?: "bobby" | "sarah" | "client";
+      source?: string;
+    };
 
-    if (!body.text || typeof body.text !== "string") {
-      return NextResponse.json({ error: "Invalid request: text is required" }, { status: 400 });
+    const ideaText = typeof body.text === "string" ? body.text.trim() : "";
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    if (!ideaText && !title) {
+      return NextResponse.json({ error: "Invalid request: text or title is required" }, { status: 400 });
     }
 
     // Read existing ideas
@@ -73,7 +89,13 @@ export async function POST(
     // Add new idea
     const newIdea: Idea = {
       id: randomUUID(),
-      text: body.text.trim(),
+      type: body.type ?? "idea",
+      title: title || undefined,
+      text: ideaText || title,
+      images: Array.isArray(body.images) ? body.images : undefined,
+      urls: Array.isArray(body.urls) ? body.urls : undefined,
+      author: body.author,
+      source: body.source ?? "dashboard",
       created_at: new Date().toISOString(),
     };
     data.ideas.push(newIdea);

@@ -13,6 +13,10 @@ interface TodoTask {
   assignee: 'bobby' | 'sarah' | 'client' | null;
   priority: 'low' | 'mid' | 'high' | null;
   status: 'assigned' | 'in_progress' | 'review' | 'completed';
+  notes?: string;
+  dueDate?: string | null;
+  phase?: string;
+  archived?: boolean;
   createdAt: string;
   completedAt: string | null;
 }
@@ -68,6 +72,10 @@ export async function PATCH(
     if (updates.assignee !== undefined) task.assignee = updates.assignee;
     if (updates.label !== undefined) task.label = updates.label;
     if (updates.completedAt !== undefined) task.completedAt = updates.completedAt;
+    if (updates.notes !== undefined) task.notes = updates.notes;
+    if (updates.dueDate !== undefined) task.dueDate = updates.dueDate;
+    if (updates.phase !== undefined) task.phase = updates.phase;
+    if (updates.archived !== undefined) task.archived = updates.archived;
     
     todos.tasks[taskIndex] = task;
     await saveTodos(slug, todos);

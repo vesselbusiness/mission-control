@@ -14,6 +14,10 @@ interface TodoTask {
   assignee: 'bobby' | 'sarah' | 'client' | null;
   priority: 'low' | 'mid' | 'high' | null;
   status: 'assigned' | 'in_progress' | 'review' | 'completed';
+  notes?: string;
+  dueDate?: string | null;
+  phase?: string;
+  archived?: boolean;
   createdAt: string;
   completedAt: string | null;
 }
@@ -68,11 +72,11 @@ export async function POST(
     const { slug } = await params;
     const body = await request.json();
     
-    const { label, linkedPhaseTaskId, assignee, priority, status } = body;
+    const { label, linkedPhaseTaskId, assignee, priority, status, notes, dueDate, phase, archived } = body;
     
-    if (!label || !linkedPhaseTaskId) {
+    if (!label) {
       return NextResponse.json(
-        { error: 'label and linkedPhaseTaskId required' },
+        { error: 'label required' },
         { status: 400 }
       );
     }
@@ -81,11 +85,15 @@ export async function POST(
     
     const newTask: TodoTask = {
       id: randomUUID(),
-      linkedPhaseTaskId,
+      linkedPhaseTaskId: linkedPhaseTaskId || `manual-${Date.now()}`,
       label,
       assignee: assignee || null,
       priority: priority || null,
       status: status || 'assigned',
+      notes: typeof notes === 'string' ? notes : undefined,
+      dueDate: typeof dueDate === 'string' ? dueDate : null,
+      phase: typeof phase === 'string' ? phase : undefined,
+      archived: Boolean(archived),
       createdAt: new Date().toISOString(),
       completedAt: null,
     };
